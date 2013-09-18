@@ -1,0 +1,179 @@
+﻿@{
+    ViewBag.Title = "Index";
+}
+
+@section scripts {
+    
+    <script type="text/javascript">
+        $(function() {
+            var map = L.map('map').setView([55.862243, -4.254485], 18);
+            L.tileLayer('http://{s}.tile.cloudmade.com/5db3df7c2d664953a941be236a386e5a/997/256/{z}/{x}/{y}.png', {
+                attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://cloudmade.com">CloudMade</a>',
+                maxZoom: 18
+            }).addTo(map);
+
+            var overlays = {};
+
+            var resolvePoint = function(point, callback) {
+                var pointToResolve = {
+                    latitude: point.lat,
+                    longitude: point.lng
+                };
+
+                var response = $.ajax({
+                    type: "POST",
+                    url: "/api/point",
+                    data: pointToResolve,
+                    dataType: "JSON"
+                });
+
+                response.success(function(data) {
+                    callback(data);
+                });
+            };
+
+            var lastRouteRequestId = "";
+            var getRoute = function(points, callback) {
+
+                var mappedPoints = $.map(points, function(val, i) {
+                    return {
+                        latitude: val.lat,
+                        longitude: val.lng,
+                    };
+                });
+
+                var now = new Date();
+                lastRouteRequestId = "" + now.getTime();
+                
+                var routeQuery = {
+                    id: lastRouteRequestId,
+                    points: mappedPoints
+                };
+
+                var response = $.ajax({
+                    type: "POST",
+                    url: "/api/routing",
+                    data: routeQuery,
+                    dataType: "JSON"
+                });
+
+                response.success(function(data) {
+                    if (data.Id == lastRouteRequestId) {
+                        callback(data);
+                    } else {
+                        console.log("Route data abandoned.", data);
+                    }
+                });
+            };
+
+            function refresh() {
+                if (overlays.start && overlays.end) {
+                    var points = [];
+                    points.push(overlays.start.getLatLng());
+
+                    if (overlays.viaPoints) {
+                        for (var i = 0, count = overlays.viaPoints.length; i < count; i++) {
+                            points.push(overlays.viaPoints[i].getLatLng());
+                        }
+                    }
+
+                    points.push(overlays.end.getLatLng());
+
+                    getRoute(points, function(route) {
+                        if (overlays.polyline) {
+                            overlays.polyline.setLatLngs(route.Points);
+                        } else {
+                            overlays.polyline = createPolyline(route.Points);
+                            redraw();
+                        }
+                    });
+                }
+            }
+
+            function redraw() {
+                if (overlays.polyline) {
+                    var bounds = overlays.polyline.getBounds();
+                    map.fitBounds(bounds);
+                }
+            }
+
+            var lastMarkerDrag;
+
+            function createMarker(position, pointType) {
+                var minimumTimeBetweenMarkerDrags = 250;
+
+                var marker = L.marker(position, {
+                    draggable: true
+                }).addTo(map);
+
+                marker.on("drag", function() {
+                    var now = new Date();
+                    var ticks = now.getTime();
+
+                    if (!lastMarkerDrag || ticks - lastMarkerDrag > minimumTimeBetweenMarkerDrags) {
+                        lastMarkerDrag = ticks;
+                        refresh();
+                    }
+                });
+
+                marker.on("dragend", function() {
+                    var newPosition = marker.getLatLng();
+                    resolvePoint(newPosition, function(point) {
+                        marker.setLatLng(point);
+                    });
+
+                    redraw();
+                });
+
+                if (pointType) {
+                    overlays[pointType] = marker;
+                } else {
+                    overlays.viaPoints = overlays.viaPoints || [];
+                    overlays.viaPoints.push(marker);
+                }
+
+                refresh();
+                redraw();
+            }
+
+            function createPolyline(points) {
+                var polyline = L.polyline(points, { color: 'blue' }).addTo(map);
+                polyline.on("click", function(e) {
+                    console.log(e, arguments);
+                    var position = e.latlng;
+                    resolvePoint(position, function(point) {
+                        createMarker(point);
+                    });
+                });
+
+                return polyline;
+            }
+
+            map.on('click', function(e) {
+                var position = e.latlng;
+
+                if (!overlays.start) {
+                    createMarker(position, "start");
+                } else if (!overlays.end) {
+                    createMarker(position, "end");
+                } else {
+                    console.log("removing");
+                    map.removeLayer(overlays.start);
+                    map.removeLayer(overlays.end);
+                    map.removeLayer(overlays.polyline);
+
+                    if (overlays.viaPoints) {
+                        for (var i = overlays.viaPoints.length - 1; i >= 0; i--) {
+                            map.removeLayer(overlays.viaPoints[i]);
+                        }
+                    }
+
+                    overlays = {};
+                }
+            });
+
+        });
+    </script>
+}
+
+<div id="map"></div>
