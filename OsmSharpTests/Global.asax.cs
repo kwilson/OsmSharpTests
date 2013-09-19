@@ -22,6 +22,8 @@ namespace OsmSharpTests
             FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
             RouteConfig.RegisterRoutes(RouteTable.Routes);
             BundleConfig.RegisterBundles(BundleTable.Bundles);
+
+            MapEngine.Engine.PbfDataFilePath = Server.MapPath("~/App_Data/scotland-latest.osm.pbf");
         }
     }
 }

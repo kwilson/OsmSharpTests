@@ -32,8 +32,22 @@ namespace OsmSharpTests.MapEngine
 
         private static IRouter<RouterPoint> router;
 
+        public static string PbfDataFilePath { get; set; }
+
+        public static bool IsReady { get; set; }
+
         private Engine()
         {
+            if (string.IsNullOrWhiteSpace(PbfDataFilePath))
+            {
+                throw new NullReferenceException("PbfDataFilePath must be set.");
+            }
+
+            if (!File.Exists(PbfDataFilePath))
+            {
+                throw new NullReferenceException("PbfDataFilePath '" + PbfDataFilePath + "' does not exist.");
+            }
+
             // keeps a memory-efficient version of the osm-tags.
             var tagsIndex = new OsmTagsIndex();
 
@@ -44,7 +58,7 @@ namespace OsmSharpTests.MapEngine
             var osmData = new MemoryRouterDataSource<SimpleWeighedEdge>(tagsIndex);
 
             // load data into this routing datasource.
-            Stream osmPbfData = new FileInfo(@"D:\projects\OsmSharpTests\OsmSharpTests\App_Data\scotland-latest.osm.pbf").OpenRead(); // for example moscow!
+            Stream osmPbfData = new FileInfo(PbfDataFilePath).OpenRead(); // for example moscow!
             using (osmPbfData)
             {
                 var targetData = new
@@ -107,7 +121,7 @@ namespace OsmSharpTests.MapEngine
                 {
                     return null;
                 }
-
+                
                 coordinates.AddRange(osmRoute.GetPoints().Skip(1));
                 totalDistance += osmRoute.TotalDistance;
                 totalTime += osmRoute.TotalTime;
@@ -131,7 +145,11 @@ namespace OsmSharpTests.MapEngine
 
         private static GeographicCoordinate ToGeographicCoordinate(GeoCoordinate geoCoordinate)
         {
-            return new GeographicCoordinate { Latitude = geoCoordinate.Latitude, Longitude = geoCoordinate.Longitude };
+            return new GeographicCoordinate
+                       {
+                           Latitude = geoCoordinate.Latitude, 
+                           Longitude = geoCoordinate.Longitude
+                       };
         }
 
         public static Engine Instance
@@ -144,7 +162,9 @@ namespace OsmSharpTests.MapEngine
                     {
                         if (instance == null)
                         {
+                            IsReady = false;
                             instance = new Engine();
+                            IsReady = true;
                         }
                     }
                 }
