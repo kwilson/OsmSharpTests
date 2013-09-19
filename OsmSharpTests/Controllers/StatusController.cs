@@ -12,19 +12,28 @@ namespace OsmSharpTests.Controllers
     public class StatusController : ApiController
     {
         // GET api/status
-        public string Get()
+        public HttpResponseMessage Get()
         {
             if (Engine.Status == EngineStatus.Running)
             {
-                return string.Format("Running since {0}", Engine.LastStatusChange);
+                return new HttpResponseMessage
+                {
+                    Content = new StringContent(string.Format("Running since {0}", Engine.LastStatusChange))
+                };
             }
 
             if (Engine.Status == EngineStatus.Starting)
             {
-                return string.Format("Starting up since {0}", Engine.LastStatusChange);
+                return new HttpResponseMessage
+                {
+                    Content = new StringContent(string.Format("Starting up since {0}", Engine.LastStatusChange))
+                };
             }
 
-            return "Not running.";
+            return new HttpResponseMessage
+            {
+                Content = new StringContent("Not running.")
+            };
         }
     }
 }
