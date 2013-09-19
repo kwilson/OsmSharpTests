@@ -34,7 +34,8 @@ namespace OsmSharpTests.MapEngine
 
         public static string PbfDataFilePath { get; set; }
 
-        public static bool IsReady { get; set; }
+        public static EngineStatus Status { get; set; }
+        public static DateTime? LastStatusChange { get; set; }
 
         private Engine()
         {
@@ -162,9 +163,13 @@ namespace OsmSharpTests.MapEngine
                     {
                         if (instance == null)
                         {
-                            IsReady = false;
+                            Status = EngineStatus.Starting;
+                            LastStatusChange = DateTime.Now;
+                            
                             instance = new Engine();
-                            IsReady = true;
+
+                            Status = EngineStatus.Running;
+                            LastStatusChange = DateTime.Now;
                         }
                     }
                 }
